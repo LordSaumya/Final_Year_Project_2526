@@ -1,0 +1,146 @@
+\begin{tikzpicture}[
+    input_node/.style={
+        draw,
+        fill=yellow!90!black, % Dark-ish yellow
+        rounded corners,
+        text width=7cm,
+        align=center,
+        inner sep=10pt,
+        font=\small,
+        minimum height=2cm
+    },
+    processing_node/.style={
+        draw,
+        fill=blue!50, % Blue color
+        rounded corners,
+        text width=8cm,
+        align=center,
+        inner sep=10pt,
+        font=\small,
+        minimum height=2cm
+    },
+    processing_node_decomposition/.style={
+        draw,
+        fill=blue!50, % Blue color
+        rounded corners,
+        text width=12cm,
+        align=center,
+        inner sep=10pt,
+        font=\small,
+        minimum height=2cm
+    },
+    label_node/.style={
+        font=\bfseries\large,
+        align=center
+    },
+    arrow/.style={
+        -Latex,
+        thick
+    },
+    output_node/.style={
+        draw,
+        fill=green!70!black,
+        rounded corners,
+        text width=5cm,
+        align=center,
+        inner sep=10pt,
+        font=\small,
+        minimum height=2cm
+    },
+]
+
+% Hamiltonian Node
+\node[input_node] (hamiltonian) {
+    \textbf{Hamiltonian} ($\hat{H}$) \\
+    \vspace{0.5em}
+    $\hat{H} = \sum_iH_i$\\
+    \vspace{0.5em}
+};
+
+% Operator Pool Node
+\node[input_node, right=2cm of hamiltonian] (operator_pool) {
+    \textbf{Operator Pool} ($U_{Pool}$) \\
+    $U(1) = \{Z, S, T, S^\dagger, T^\dagger, P(\theta), RZ(\theta)\}$\\
+    $Z_2 = \{X, RX(\theta), RZZ(\theta, \phi)\}$\\
+    $SU(2) = \{I, \exp(i \theta(X_i X_j + Y_iY_j + Z_iZ_j))\}$\\
+    $\text{Time-Reversal} = \{X, Z, H, RX(\theta), RY(\theta)\}$\\
+    etecetera
+};
+
+% Symmetry Check Node
+\node[processing_node, below=2.5cm of $(hamiltonian)!0.5!(operator_pool)$] (symmetry_check) {
+    \textbf{Symmetry} \\
+    \vspace{0.5em}
+    For each symmetry group $\sigma$ in $U_{Pool}$, calculate $[\hat{H},S_\sigma]$ where $S_\sigma$ is/are the generators of $\sigma$. If the commutators for some set of $\{\sigma_k\}$ are 0, then we know those quantities are conserved, and gates that violate the conservation of those quantities can be discarded from $U_{Pool}$. Symmetries without generators, like time reversal, must be checked using more explicit methods.\\
+    \vspace{0.5em}
+    Alternatively, continuous (Lie) symmetries may also be learnt directly from the Hamiltonian or its trajectory data using methods like \href{https://arxiv.org/abs/2410.08087}{Noether's Razor} (Ouderaa et al, 2024) or \href{https://arxiv.org/abs/2412.14632v1}{MLSD} (Hou et al, 2024).
+};
+
+% Tapering node
+\node[processing_node, below= 1cm of symmetry_check](tapering) {
+    \textbf{Tapering} \\
+    \vspace{0.5em}
+    Use found symmetries to find tapering operators. Store all found tapering operators and apply them to the Hamiltonian. This can significantly reduce the number of qubits from the Hamiltonian depending on symmetries found.
+};
+
+% Decomposition
+\node[processing_node_decomposition, below=1cm of tapering] (decomposition) {
+    \textbf{Decomposition} \\
+    \vspace{0.5em}
+    Group all of the terms in the Hamiltonian into commuting sets. This corresponds exactly to the clique cover problem, which is NP-complete in general, although a sequential largest-first greedy strategy can guarantee a number of commuting groups polynomial in the number of qubits, roughly $O(N^{k-1})$ for a $k$-local Hamiltonian. For the average physical Hamiltonian, however, the actual number should scale sub-polynomially in $N$, possibly $O(\log N)$ or even $O(1)$ for certain geometries (eg. a 1D chain with nearest-neighbour connectivity).
+    This can be done as follows for a Hamiltonian with $n$ terms (\hterms):
+    \begin{framed}        
+    \begin{enumerate}
+        \item If \hterms~is empty, return \code{[]}
+        \item Sort \hterms~in descending order of the number of terms they do not commute with.
+        \item Initialise the first element as its own group: \code{commutingGroups = [[h\_terms.pop\_first()}]]
+        \item For \code{term} in \hterms:
+        \begin{enumerate}
+            \item Initalise \code{placed = false}
+            \item For \code{group} in \code{commutingGroups}:
+            \begin{enumerate}
+                \item Initialise \code{commutes = true}
+                \item For \code{member} in \code{group}:
+                \begin{enumerate}
+                    \item If [\code{term}, \code{member}] $\ne$ 0, then set \code{commutes = false} and move to next group.
+                \end{enumerate}
+                \item If \code{commutes = true}, then add \code{term} to \code{group}, set \code{placed = true} and move to next term.
+            \end{enumerate}
+            \item If \code{placed = false}, then create a new group \code{[term]} and add it to \code{commutingGroups}.
+        \end{enumerate}
+    \end{enumerate}
+    \end{framed}
+    This partitions $\hat{H}$ into commuting groups $G_1, G_2, ...$. Each commuting group can be measured simultaneously, decreasing the number of measurements required. For time evolution circuits, the subcircuits for all groups can be constructed in parallel using the local symmetries for each group.
+};
+
+\node[processing_node, right=2cm of decomposition] (synthesis) {
+    \textbf{Synthesis Algorithm} \\
+    \vspace{0.5em}
+    Can use any circuit synthesis method discussed so far, including RL, deep RL, gadget-assisted RL, diffusion models, etcetera. \href{https://arxiv.org/abs/2410.09486}{ActSafe} (Krause et al, 2025) is a novel, promising RL algorithm for constrained MDP problems with safety and sample bound complexity guarantees. Using native hardware constraints/circuit depth as safety constraints can help generate circuits that are optimal in these constraints.
+    \\
+    \vspace{0.5em}
+    For time evolution circuits, the synthesis algorithm runs in parallel for all commuting groups and then joins constructed circuits sequentially. For ground state search, the synthesis algorithm would only need to reconstruct the measured state $k$ times instead of $n$ times, where $k$ is the number of commuting groups. To reduce measurements within each run, energy estimation may be conducted using classical shadows.\\
+    \vspace{0.5em}
+    The adjoint tapering operators must be applied at the end of the circuit to transform the solution of the simplified Hamiltonian to the solution of $\hat{H}$, since $\ket{\psi_{\text{original}}} = \tau^\dagger\ket{\psi_{\text{tapered}}}$.
+};
+
+\node[output_node, below = 1cm of synthesis](output) {
+    \textbf{Output} \\
+    \vspace{0.5em}
+    \textit{Time Evolution:} A circuit $U$ that transforms an initial state $\ket{\phi}$ to a state $\ket{\psi(t)}$ that represents the evolution of the system under $\hat{H}$ for time $t$.\\
+    \vspace{0.5em}
+    \textit{Ground state:} A circuit $U$ that transforms a fixed initial state $\ket{\phi}$ to a state that corresponds with the lowest energy configuration of the system characterised by $\hat{H}$.
+};
+
+% Arrows
+\draw[arrow] (hamiltonian.south) -- (symmetry_check);
+\draw[arrow] (operator_pool.south) -- (symmetry_check);
+\draw[arrow] (symmetry_check.east) -- ++(5,0) |- (operator_pool.east);
+\draw[arrow] (symmetry_check.south) -- (tapering.north);
+\draw[arrow] (tapering.south) -- (decomposition.north);
+\draw[arrow] (decomposition.west) -- ++(-3, 0) |- (hamiltonian.west);
+\draw[arrow] (decomposition.east) -- (synthesis.west);
+\draw[arrow] (operator_pool.south) -- (synthesis.north);
+\draw[arrow] (synthesis.south) -- (output.north);
+
+\end{tikzpicture}

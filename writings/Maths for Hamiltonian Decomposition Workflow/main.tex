@@ -1,0 +1,137 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{xcolor}
+\usepackage{biblatex}
+\addbibresource{sources.bib}
+\usepackage{hyperref}
+\setcounter{secnumdepth}{2}
+\usepackage[most]{tcolorbox}
+\usepackage{braket}
+\usepackage{amsmath,amssymb}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usetikzlibrary{positioning, arrows.meta, calc}
+\usepackage{algorithmicx}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\hterms}{\code{hTerms}}
+\usepackage{framed}
+\usepackage{braket}
+\usepackage{hyperref}
+\usepackage{physics}
+\usepackage[a4paper, total={18.4cm, 26cm}]{geometry}
+
+\newtcbtheorem{definition}{Def}{
+    colback=black!0,
+    colframe=black!50,
+    sharp corners,
+    separator sign={:\ }
+}{def}
+
+\newcommand{\todo}[1]{\noindent\textcolor{red}{\fbox{TODO: #1}}\vspace{0.5em}\\}
+
+\newcommand{\qed}{\hfill\square}
+
+\newcommand{\twirl}[2]{\mathcal{T}_{#1}\left[#2\right]}
+
+\newcommand{\hamiltonian}{\mathcal{H}}
+\newcommand{\sym}{\mathcal{S}}
+\newcommand{\genset}{\genset}
+
+\title{Hamiltonian Decomposition Strategy}
+\author{Saumya Shah}
+\date{October 2025}
+
+\begin{document}
+\maketitle
+
+% Figure
+\todo{Update figure}
+\resizebox{0.9\textwidth}{!}{
+    \input{figure}
+}
+
+\section{Symmetries}
+
+\subsection{Definitions}
+
+\subsubsection{Commutator}
+\begin{definition}{Commutator}{comm_def}
+The commutator of two operators $A, B$ is defined as follows:
+
+$$[A, B] = AB - BA$$
+
+When $[A, B] = 0$, or equivalently, $AB = BA$, the operators $A, B$ are said to commute. \cite{cantwell2016introduction}
+\cite{vonNeumann:2018:MFQ}
+
+\end{definition}
+\begin{itemize}
+    \item Given some set of observables $\mathcal{A}, \mathcal{B},...$ and their corresponding operators $A, B, ...$, the commutativity of $A, B, ...$ is \textbf{necessary and sufficient} for the simultaneous measurement of $\mathcal{A}, \mathcal{B},...$ \cite{vonNeumann:2018:MFQ}.
+
+    \item Given a state consisting of $n$ qubits $\ket{\psi} = \bigotimes_{i = 1}^n\ket{\psi_i}$, two spin operators (such as Pauli operators) $I \otimes ...\otimes \sigma^a_j \otimes ... \otimes I$, $I \otimes ...\otimes \sigma^b_k \otimes ... \otimes I$ acting on distinct qubits $a, b$ commute, since the operators act on different factors of the tensor product $\ket{\psi}$ \cite{corry2017symmetry}.
+\end{itemize}
+
+\subsubsection{Symmetry}
+
+Let $X$ be a mathematical object. A symmetry transformation is a mapping $g: X \mapsto X$ that preserves a relevant property of $X$, ie. that property is invariant to $g$. The set of all transformations that preserve this property forms a \textit{group} \cite{cantwell2016introduction}. According to Wigner's theorem, transformations on Hamiltonians that preserve transition probabilities must be unitary or anti-unitary operators \cite{corry2017symmetry}.
+
+An operator $U$ is a symmetry of Hamiltonian $\hamiltonian$ if it leaves the Hamiltonian invariant, ie. $U\hamiltonian U^\dagger =\hamiltonian$, which is equivalent to the commutation relation $[\hamiltonian, U] = 0$. \cite{corry2017symmetry}.
+
+\textbf{Discrete Symmetries} are described by discrete groups with finite or countably infinite elements. Some examples of these in quantum mechanics include parity (invariance under spatial inversion), time reversal (invariance under time reversal), etcetera.
+
+\textbf{Continuous Symmetries} are described by a Lie group. Any element $U$ of a one-parameter Lie group can be written in terms of a generator $G$ for a continuous parameter $\alpha$: $$U(\alpha) = \exp\left(\frac{i}{\hslash}\alpha G\right)$$.
+
+If $[\hamiltonian, G] = 0$, then the physical quantity represented by $G$ is a \textit{conserved quantity} \ref{def:cq_def}. This is a quantum mechanical statement of Noether's theorem \cite{ouderaaNoethersRazorLearning2024}. An example of this in quantum mechanics is $SO(2)$.\\
+
+\begin{definition}{Conserved Quantity}{cq_def}
+If $O$ is a time-independent observable, then $\hamiltonian(t)$ for all times $t$, then for any initial state $\psi$, the expectation value $\braket{O}_{\psi_t}$ is a \textit{conserved quantity} for the dynamics specified by $\hamiltonian(t)$.
+
+If $\psi$ is an eigenstate for $O$ such that $O\ket{\psi} = \lambda \ket{\psi}$, then $\psi_t$ is an eigenstate for $O$ with the same eigenvalue $\lambda$ \cite{corry2017symmetry}.
+\end{definition}
+
+\textbf{Consequences}
+\begin{itemize}
+    \item If a symmetry operator $U$ does not explictly depend on time, and $[\hamiltonian, U] = 0$, then the expectation value of any observable $A$ associated with $U$ is conserved.
+    \item If $\ket{\psi}$ is an eigenstate of $\hamiltonian$ with eigenvalue $\lambda$, then the state $U\ket{\psi}$ ($U$ is a symmetry operator) is also an eigenstate of $\hamiltonian$ with the same eigenvalue $\lambda$.
+\end{itemize}
+
+\textbf{Symmetry Preservation in Operators}
+If an operator $U$ commutes with a symmetry operator $S$ (ie. $[S, U] = 0$) for a Hamiltonian $\hamiltonian$, then $U$ preserves the $[\hamiltonian, S]$ commutation relation when applied to a state $\ket{\psi}$ evolving under $\hamiltonian$, ie. it preserves the symmetry. More precisely, if a state $\ket{\psi}$ is an eigenstate of the symmetry operator $S$ with the eigenvalue $s$, then the new state $\ket{\psi'} = U\ket{\psi}$ is also an eigenstate of $S$ with the same eigenvalue. This is true because: $$S\ket{\psi'} = S(U\ket{\psi}) = U(S\ket{\psi}) = U(s(\ket{\psi})) = s(U\ket{\psi}) = s\ket{\psi'}$$
+\vspace{0.1ex}
+
+\begin{definition}{Twirling Operator}{tw_def}
+    Let $U_s$ be a unitary representation of a symmetry group $\sym$. \begin{equation}\twirl{U}{X} = \begin{cases}\begin{aligned}
+        \frac{1}{|S|}\sum_{s \in \sym}U_sXU_s^\dagger & ~~~~\sym \text{ is a discrete group}\\
+        \int U_sXU_s^\dagger \dd{\mu} & ~~~~ \sym \text{ is a Lie (continuous) group with Haar measure $\mu$}
+        \end{aligned}
+    \end{cases}\end{equation}
+    defines a projector onto the set of operators commuting with all elements of the representation.\cite{meyerExploitingSymmetryVariational2023}
+    To prove this, it suffices to show that $[\twirl{U}{X}, U_s] = 0 ~\forall~ X, s \in \sym$, or $U_s \twirl{U}{X}U_s = \twirl{U}{X}$. 
+    \begin{equation}
+    \begin{split}
+        U_s\twirl{U}{X}U_S^\dagger &= U_s\left(\frac{1}{|S|}\sum_{t \in \sym}U_tXU_t^\dagger\right)U_s^\dagger\\
+        &= \frac{1}{|S|}\sum_{t \in \sym}U_{st}XU_{st}^\dagger ~~\text{[By the group property $U_sU_t = U_{st}$]}\\
+        &= \frac{1}{|S|}\sum_{r \in \sym}U_{r}XU_{r}^\dagger ~~\text{[Relabel $st$ as $r$ (bijective relabeling)]}\\
+        &= \twirl{U}{X} ~~~\qed
+    \end{split}
+    \end{equation}
+    
+\end{definition}
+
+\textbf{Symmetrising Generators} If an operator $X$ is generated by a generator $G$ from a generator set $\genset$ such that $X = \exp(-i\theta G)$, and $\sym$ is a symmetry with unitary representation $U_s$, then $X'$ generated by $G' = \twirl{U}{G}$ commutes with $U$, ie. \begin{equation}
+    [\exp\left(-i \theta \twirl{U}{G}\right), U_s]= 0 ~ \forall ~ G \in \genset, s \in \sym
+\end{equation}.
+
+Therefore, given a set of generators $\genset$, a gateset constructed as $\mathcal{X} = \{\exp\left(-i\theta\twirl{U}{G}\right)\ | G \in \genset \}$ is equivariant over symmetry $\sym$ represented by a unitary $U_s, ~s \in \sym$.\cite{meyerExploitingSymmetryVariational2023}
+
+\subsection{Common Symmetries}
+
+\todo{List common symmetries in physical systems and define them}
+
+$U(2), Z_2, SU(2), TRI$
+
+\section{Grouping}
+\todo{Show proof for largest-first greedy search guarantees}
+
+\printbibliography
+\end{document}
