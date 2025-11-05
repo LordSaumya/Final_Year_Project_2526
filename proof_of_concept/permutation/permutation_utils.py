@@ -11,7 +11,7 @@ import os
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from hamiltonian_utils import PauliString, Hamiltonian, PauliOperator
+from hamiltonian_utils import PauliString, Hamiltonian
 
 plt.style.use(["science", "no-latex"])
 
@@ -113,7 +113,10 @@ def generate_symmetric_hamiltonian_int(
         if p_string in hamiltonian:
             continue
 
-        coeff = coeff_distribution()
+        # Generate non-zero coefficient
+        coeff = 0.0
+        while abs(coeff) < 1e-14:
+            coeff = coeff_distribution()
 
         # Generate orbit under the symmetry group
         orbit = set()
@@ -227,6 +230,7 @@ def hamiltonian_to_graph(hamiltonian: Hamiltonian) -> nx.Graph:
 
     pauli_int_to_str = {1: "X", 2: "Y", 3: "Z"}
     n_qubits = hamiltonian.n_qubits
+    assert n_qubits is not None
 
     # V_Q = {q_1, ..., q_n}
     qubit_nodes = [f"q{i}" for i in range(n_qubits)]
@@ -315,7 +319,7 @@ def visualise_hamiltonian_graph(hamiltonian: Hamiltonian) -> None:
         nodelist=term_nodes,
         node_color=term_coeffs,
         node_size=500,
-        cmap=plt.cm.coolwarm,
+        cmap='coolwarm',
         ax=ax,
     )
 

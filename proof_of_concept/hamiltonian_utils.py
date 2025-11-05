@@ -60,7 +60,7 @@ class PauliString:
             raise ValueError("Locality must be between 0 and n_qubits")
         
         operators = np.zeros(n_qubits, dtype=np.int8)
-        indices = random.sample(range(n_qubits), locality)
+        indices = random.sample(list(range(n_qubits)), locality)
         
         for idx in indices:
             operators[idx] = random.choice([1, 2, 3])  # X, Y, or Z
@@ -125,6 +125,10 @@ class PauliString:
     def to_tuple(self) -> Tuple[int, ...]:
         """Convert to tuple representation."""
         return tuple(self.operators)
+    
+    def weight(self) -> int:
+        """Return the weight (number of non-identity operators)."""
+        return int(np.count_nonzero(self.operators))
 
 
 class Hamiltonian:
@@ -139,10 +143,12 @@ class Hamiltonian:
         Args:
             terms: Dictionary mapping PauliString to complex coefficients
         """
-        self.terms: Dict[PauliString, complex] = terms if terms is not None else {}
-        self.n_qubits = None
-        if self.terms:
-            self.n_qubits = next(iter(self.terms)).n_qubits
+        self.terms: Dict[PauliString, complex] = {}
+        self.n_qubits: int | None = None
+        
+        if terms is not None:
+            for pauli_string, coeff in terms.items():
+                self.add_term(pauli_string, coeff)
     
     @classmethod
     def from_dict(cls, terms_dict: Dict[Tuple[int, ...], complex]) -> 'Hamiltonian':
@@ -152,19 +158,44 @@ class Hamiltonian:
         Args:
             terms_dict: Dictionary mapping tuples to coefficients
         """
-        terms = {PauliString.from_list(list(key)): coeff 
-                for key, coeff in terms_dict.items()}
-        return cls(terms)
+        hamiltonian = cls()
+        for key, coeff in terms_dict.items():
+            pauli_string = PauliString.from_list(list(key))
+            hamiltonian.add_term(pauli_string, coeff)
+        return hamiltonian
     
     def add_term(self, pauli_string: PauliString, coefficient: complex) -> None:
-        """Add or update a term in the Hamiltonian."""
+        """
+        Add or update a term in the Hamiltonian.
+        
+        Args:
+            pauli_string: The Pauli string for this term
+            coefficient: The coefficient (must be non-zero)
+            
+        Raises:
+            ValueError: If coefficient is zero or close to zero
+        """
         if self.n_qubits is None:
             self.n_qubits = pauli_string.n_qubits
         elif self.n_qubits != pauli_string.n_qubits:
             raise ValueError("All terms must have same number of qubits")
         
+        # Check for zero coefficient
+        if isinstance(coefficient, complex):
+            if abs(coefficient) < 1e-14:
+                raise ValueError(f"Coefficient must be non-zero, got {coefficient}")
+        else:
+            if abs(coefficient) < 1e-14:
+                raise ValueError(f"Coefficient must be non-zero, got {coefficient}")
+        
         if pauli_string in self.terms:
-            self.terms[pauli_string] += coefficient
+            new_coeff = self.terms[pauli_string] + coefficient
+            # Check if adding results in zero
+            if abs(new_coeff) < 1e-14:
+                raise ValueError(
+                    f"Adding coefficient {coefficient} to existing term results in zero"
+                )
+            self.terms[pauli_string] = new_coeff
         else:
             self.terms[pauli_string] = coefficient
     

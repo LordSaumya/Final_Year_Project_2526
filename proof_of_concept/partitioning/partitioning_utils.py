@@ -181,7 +181,7 @@ def _generate_random_pauli_string(N: int, k: int) -> np.ndarray:
     pauli_array = np.zeros(N, dtype=int)
     
     # Choose k unique locations for non-identity Paulis
-    qubit_indices = random.sample(range(N), k)
+    qubit_indices = random.sample(list(range(N)), k)
     
     # Assign a random Pauli (X, Y, or Z) to the chosen locations
     pauli_operators = [0, 1, 2, 3] # Corresponding to I, X, Y, Z
@@ -210,7 +210,7 @@ def _do_pauli_strings_commute(p1: np.ndarray, p2: np.ndarray) -> bool:
             
     return mismatches % 2 == 0
 
-def generate_hamiltonian_graph(N: int, k: int, num_terms: int = None) -> Tuple[nx.Graph, Hamiltonian]:
+def generate_hamiltonian_graph(N: int, k: int, num_terms: int | None = None) -> Tuple[nx.Graph, Hamiltonian]:
     """
     Generates a graph representing the commutation relations of a random Hamiltonian.
 
@@ -244,7 +244,10 @@ def generate_hamiltonian_graph(N: int, k: int, num_terms: int = None) -> Tuple[n
     # Create Hamiltonian with random coefficients
     hamiltonian = Hamiltonian()
     for p_string in pauli_strings:
-        coeff = random.gauss(0, 1)  # Random coefficient
+        # Generate non-zero coefficient
+        coeff = 0.0
+        while abs(coeff) < 1e-14:
+            coeff = random.gauss(0, 1)
         hamiltonian.add_term(p_string, coeff)
 
     # Create the graph and add all Pauli strings as nodes

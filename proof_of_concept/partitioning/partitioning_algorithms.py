@@ -1,6 +1,6 @@
 import networkx as nx
 from typing import Set, List
-from partitioning_utils import (
+from partitioning_utils import ( # ty: ignore[unresolved-import]
     calculate_b_metric,
     partition_with_bk,
 )
@@ -184,7 +184,7 @@ def bron_kerbosch_optimiser(
         return partitions
 
     # Pool all nodes from the small partitions
-    pool_nodes = set.union(*small_partitions)
+    pool_nodes = set().union(*small_partitions)
 
     if not pool_nodes:
         return partitions

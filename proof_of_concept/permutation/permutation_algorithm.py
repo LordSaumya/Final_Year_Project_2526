@@ -1,5 +1,5 @@
 import networkx as nx
-from permutation_utils import (
+from permutation_utils import ( # ty: ignore[unresolved-import]
     hamiltonian_to_graph,
     _map_to_cycles,
     visualise_hamiltonian_graph,
@@ -88,7 +88,7 @@ def _check_permutation_batch(
 def find_automorphism_group_bruteforce_graph(
     graph: nx.Graph,
     parallel: bool = True,
-    n_processes: int = None
+    n_processes: int | None = None
 ) -> tuple[List[List[List[int]]], int]:
     """Finds the permutation symmetries of a Hamiltonian graph via brute force.
 
