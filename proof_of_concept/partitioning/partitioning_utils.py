@@ -2,6 +2,12 @@ import networkx as nx
 import numpy as np
 from typing import Set, List, Tuple
 import random
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from hamiltonian_utils import PauliString, Hamiltonian
 
 
 def generate_random_graph(n: int, p: float) -> nx.Graph:
@@ -204,7 +210,7 @@ def _do_pauli_strings_commute(p1: np.ndarray, p2: np.ndarray) -> bool:
             
     return mismatches % 2 == 0
 
-def generate_hamiltonian_graph(N: int, k: int, num_terms: int = None) -> Tuple[nx.Graph, List[np.ndarray]]:
+def generate_hamiltonian_graph(N: int, k: int, num_terms: int = None) -> Tuple[nx.Graph, Hamiltonian]:
     """
     Generates a graph representing the commutation relations of a random Hamiltonian.
 
@@ -215,44 +221,44 @@ def generate_hamiltonian_graph(N: int, k: int, num_terms: int = None) -> Tuple[n
         N: The number of qubits.
         k: The locality of the Pauli terms (the number of non-identity operators).
         num_terms: The number of Pauli strings to generate for the Hamiltonian.
-                   Defaults to 2*N if not provided.
+                   Defaults to 1.5*N if not provided.
 
     Returns:
-        A NetworkX Graph object representing the commutation relations.
+        A tuple of (NetworkX Graph, Hamiltonian object) representing the commutation relations.
     """
     if num_terms is None:
-        num_terms = 1.5*N
+        num_terms = int(1.5 * N)
 
-    # Generate a list of unique Pauli terms to serve as graph nodes
-    pauli_terms_numeric = []
-    pauli_terms_str_set = set() # Using a set ensures uniqueness
+    # Generate unique Pauli strings
+    pauli_strings = []
+    pauli_strings_set = set()
     
-    while len(pauli_terms_numeric) < num_terms:
-        # Generate a new random k-local term
-        p_array = _generate_random_pauli_string(N, k)
-        p_str = _pauli_array_to_string(p_array)
+    while len(pauli_strings) < num_terms:
+        p_string = PauliString.random(N, k)
+        p_str_repr = str(p_string)
         
-        # Add it to our collection if it's a new one
-        if p_str not in pauli_terms_str_set:
-            pauli_terms_str_set.add(p_str)
-            pauli_terms_numeric.append(p_array)
-            
-    pauli_terms_str = list(pauli_terms_str_set)
+        if p_str_repr not in pauli_strings_set:
+            pauli_strings_set.add(p_str_repr)
+            pauli_strings.append(p_string)
+    
+    # Create Hamiltonian with random coefficients
+    hamiltonian = Hamiltonian()
+    for p_string in pauli_strings:
+        coeff = random.gauss(0, 1)  # Random coefficient
+        hamiltonian.add_term(p_string, coeff)
 
     # Create the graph and add all Pauli strings as nodes
     G = nx.Graph()
-    G.add_nodes_from(pauli_terms_str)
+    G.add_nodes_from([str(p) for p in pauli_strings])
     
     # Iterate through all pairs of nodes to check for commutation
-    for i in range(len(pauli_terms_numeric)):
-        for j in range(i + 1, len(pauli_terms_numeric)):
-            p1_num = pauli_terms_numeric[i]
-            p2_num = pauli_terms_numeric[j]
+    for i in range(len(pauli_strings)):
+        for j in range(i + 1, len(pauli_strings)):
+            p1 = pauli_strings[i]
+            p2 = pauli_strings[j]
             
             # If they commute, add an edge to the graph
-            if _do_pauli_strings_commute(p1_num, p2_num):
-                p1_str = pauli_terms_str[i]
-                p2_str = pauli_terms_str[j]
-                G.add_edge(p1_str, p2_str)
+            if p1.commutes_with(p2):
+                G.add_edge(str(p1), str(p2))
                 
-    return nx.complement(G), pauli_terms_numeric
+    return nx.complement(G), hamiltonian

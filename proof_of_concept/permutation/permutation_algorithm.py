@@ -7,13 +7,17 @@ from permutation_utils import (
     generate_symmetric_hamiltonian_int,
     are_generators_equivalent,
     check_permutation_symmetry,
-    _hamiltonian_to_string_int
 )
+import sys
+import os
 import itertools
-from collections import defaultdict
 from typing import Dict, Tuple, List, Set
 from multiprocessing import Pool, cpu_count
 from functools import partial
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from hamiltonian_utils import Hamiltonian
 
 
 def _map_tuple_to_cycles(perm_tuple: Tuple[int, ...]) -> List[List[int]]:
@@ -166,14 +170,13 @@ def find_automorphism_group_bruteforce_graph(
                 # Check if this permuted signature exists
                 if target_sig not in signature_lookup:
                     is_symmetry = False
-                    break # This permutation is invalid, stop checking its terms
-        
-        if is_symmetry:
-            group_size += 1
-            if perm_map != identity_tuple:
-                cycles = _map_tuple_to_cycles(perm_map)
-                if cycles:
-                    found_symmetries_cycles.append(cycles)
+                    break # This permutation is invalid, stop checking its terms            
+            if is_symmetry:
+                group_size += 1
+                if perm_map != identity_tuple:
+                    cycles = _map_tuple_to_cycles(perm_map)
+                    if cycles:
+                        found_symmetries_cycles.append(cycles)
                     
         return found_symmetries_cycles, group_size
     
@@ -212,10 +215,10 @@ def find_automorphism_group_bruteforce_graph(
 
 
 if __name__ == "__main__":
-    n_qubits = 12
+    n_qubits = 5
     n_seed_terms = 4
-    locality = 4
-    symmetries = random_symmetry_generators(n_qubits, 5, locality)
+    locality = 2
+    symmetries = random_symmetry_generators(n_qubits, 2, locality)
     print("Symmetries used to generate Hamiltonian:", symmetries)
 
     hamiltonian = generate_symmetric_hamiltonian_int(
@@ -230,7 +233,7 @@ if __name__ == "__main__":
     for gen in generators:
         if not check_permutation_symmetry(hamiltonian, [gen], n_qubits):
             symmetries_present = False
-            print("Hamiltonian:", _hamiltonian_to_string_int(hamiltonian))
+            print("Hamiltonian:", hamiltonian)
             print("Symmetry violation found for generator:", gen)
             print("The found generators do NOT match the original symmetries.")
             break
