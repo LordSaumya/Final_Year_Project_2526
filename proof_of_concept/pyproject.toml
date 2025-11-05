@@ -10,4 +10,5 @@ dependencies = [
     "pandas>=2.3.3",
     "pennylane>=0.42.3",
     "scienceplots>=2.1.1",
+    "sympy>=1.14.0",
 ]
