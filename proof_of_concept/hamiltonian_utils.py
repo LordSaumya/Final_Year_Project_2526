@@ -21,7 +21,7 @@ class PauliString:
     
     def __init__(self, operators: np.ndarray):
         """
-        Initialize a Pauli string.
+        Initialise a Pauli string.
         
         Args:
             operators: Array of integers representing Pauli operators (0=I, 1=X, 2=Y, 3=Z)
@@ -134,7 +134,7 @@ class Hamiltonian:
     
     def __init__(self, terms: Optional[Dict[PauliString, complex]] = None):
         """
-        Initialize a Hamiltonian.
+        Initialise a Hamiltonian.
         
         Args:
             terms: Dictionary mapping PauliString to complex coefficients
