@@ -1,13 +1,10 @@
 import networkx as nx
 from permutation_utils import ( # ty: ignore[unresolved-import]
     hamiltonian_to_graph,
-    _map_to_cycles,
-    visualise_hamiltonian_graph,
-    random_symmetry_generators,
-    generate_symmetric_hamiltonian_int,
-    are_generators_equivalent,
     check_permutation_symmetry,
+    find_minimal_generators
 )
+from automorphism_finder import find_automorphism_group_orbits
 import sys
 import os
 import itertools
@@ -17,8 +14,7 @@ from functools import partial
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from hamiltonian_utils import Hamiltonian
-
+from hamiltonian_utils import PauliString, Hamiltonian
 
 def _map_tuple_to_cycles(perm_tuple: Tuple[int, ...]) -> List[List[int]]:
     """Converts a permutation map tuple, e.g. (1, 2, 0), to cycles."""
@@ -178,7 +174,7 @@ def find_automorphism_group_bruteforce_graph(
                     if cycles:
                         found_symmetries_cycles.append(cycles)
                     
-        return found_symmetries_cycles, group_size
+        return find_minimal_generators(found_symmetries_cycles, n_qubits), group_size
     
     # --- Parallel version ---
     if n_processes is None:
@@ -211,31 +207,80 @@ def find_automorphism_group_bruteforce_graph(
         found_symmetries_cycles.extend(batch_symmetries)
         group_size += batch_count
     
-    return found_symmetries_cycles, group_size
+    return find_minimal_generators(found_symmetries_cycles, n_qubits), group_size
+
+def print_results(hamiltonian_name: str, generators: List[List[List[int]]], group_size: int):
+    print(f"\nHamiltonian: {hamiltonian_name}")
+    print(f"Found {group_size} symmetries, with generators:")
+    for gen in generators:
+        print(f"  {gen}")
 
 
 if __name__ == "__main__":
+    # n_qubits = 5
+    # n_seed_terms = 4
+    # locality = 2
+    # symmetries = random_symmetry_generators(n_qubits, 2, locality)
+    # print("Symmetries used to generate Hamiltonian:", symmetries)
+
+    # hamiltonian = generate_symmetric_hamiltonian_int(
+    #     n_qubits, symmetries, n_seed_terms, locality
+    # )
+
+    n_qubits = 10
+    print(f"\n---- 1D Transverse Field Ising Model (PBC, {n_qubits} Qubits, Homogenous) ----")
+    tfi_hamiltonian = Hamiltonian.tfi_1d(n_qubits=n_qubits, h=5.0, J=10.0, periodic = True)
+
+    # visualise_hamiltonian_graph(tfi_hamiltonian)
+
+    generators, group_size = find_automorphism_group_bruteforce_graph(hamiltonian_to_graph(tfi_hamiltonian))
+    print_results("1D TFI", generators, group_size)
+
+    print("\n---- 1D Transverse Field Ising Model (PBC, 8 Qubits, Inhomogenous) ----")
+    tfi_inhom_hamiltonian_terms: Dict[PauliString, complex] = {
+        PauliString([3, 3, 0, 0, 0, 0, 0]): 10.0, # Z1Z2
+        PauliString([0, 3, 3, 0, 0, 0, 0]): 10.0,  # Z2Z3
+        PauliString([0, 0, 3, 3, 0, 0, 0]): 10.0, # Z3Z4
+        PauliString([0, 0, 0, 3, 3, 0, 0]): -10.0,  # Z4Z5
+        PauliString([0, 0, 0, 0, 3, 3, 0]): -10.0, # Z5Z6
+        PauliString([0, 0, 0, 0, 0, 3, 3]): -10.0,  # Z6Z7
+        PauliString([3, 0, 0, 0, 0, 0, 3]): 10.0, # Z7Z0 (PBC)
+    }
+
+    for i in range(7):
+        tfi_inhom_hamiltonian_terms[PauliString([1 if j == i else 0 for j in range(7)])] = (-1)**i * 5.0  # X_i terms
+
+    tfi_inhom_hamiltonian = Hamiltonian(tfi_inhom_hamiltonian_terms)
+
+    # visualise_hamiltonian_graph(tfi_inhom_hamiltonian)
+
+    generators, group_size = find_automorphism_group_bruteforce_graph(hamiltonian_to_graph(tfi_inhom_hamiltonian))
+    print_results("1D TFI Inhomogenous", generators, group_size)
+
+    print("\n---- 2D Transverse Field Ising Model (Square Lattice, 4 Qubits) ----")
+    # H = -J(Z0Z1 + Z1Z2 + Z2Z3 + Z3Z0) - h(X1 + X2 + X3 + X4)
+    # J = 2.0, h = 3.0
+    hamiltonian_terms: Dict[PauliString, complex] = {
+        PauliString([3, 3, 0, 0]): -2.0,  # Z0Z1
+        PauliString([0, 3, 3, 0]): -2.0,  # Z1Z2
+        PauliString([0, 0, 3, 3]): -2.0,  # Z2Z3
+        PauliString([3, 0, 0, 3]): -2.0,  # Z3Z0
+        PauliString([1, 0, 0, 0]): -3.0,  # X0
+        PauliString([0, 1, 0, 0]): -3.0,  # X1
+        PauliString([0, 0, 1, 0]): -3.0,  # X2
+        PauliString([0, 0, 0, 1]): -3.0   # X3
+    }
+
+    square_lattice_hamiltonian = Hamiltonian(hamiltonian_terms)
+    # visualise_hamiltonian_graph(square_lattice_hamiltonian)
+    generators, group_size = find_automorphism_group_bruteforce_graph(hamiltonian_to_graph(square_lattice_hamiltonian))
+    print_results("2D TFI Square Lattice", generators, group_size)
+
     n_qubits = 5
-    n_seed_terms = 4
-    locality = 2
-    symmetries = random_symmetry_generators(n_qubits, 2, locality)
-    print("Symmetries used to generate Hamiltonian:", symmetries)
+    print("\n--- 1D Heisenberg Model (8 Qubits) ---")
+    heisenberg_hamiltonian = Hamiltonian.heisenberg_1d(n_qubits=n_qubits, Jx=1.0, Jy=1.0, Jz=1.0, periodic=False, fc = True)
+    
+    # visualise_hamiltonian_graph(heisenberg_hamiltonian)
 
-    hamiltonian = generate_symmetric_hamiltonian_int(
-        n_qubits, symmetries, n_seed_terms, locality
-    )
-
-    generators, group_size = find_automorphism_group_bruteforce_graph(hamiltonian_to_graph(hamiltonian))
-    print("Generators (in disjoint cycle format):", generators)
-    print("Group size:", group_size)
-
-    symmetries_present = True
-    for gen in generators:
-        if not check_permutation_symmetry(hamiltonian, [gen], n_qubits):
-            symmetries_present = False
-            print("Hamiltonian:", hamiltonian)
-            print("Symmetry violation found for generator:", gen)
-            print("The found generators do NOT match the original symmetries.")
-            break
-    if symmetries_present:
-        print("The found generators match the original symmetries.")
+    generators, group_size = find_automorphism_group_bruteforce_graph(hamiltonian_to_graph(heisenberg_hamiltonian))
+    print_results("1D Heisenberg", generators, group_size)
