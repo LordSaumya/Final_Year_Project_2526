@@ -244,3 +244,147 @@ class Hamiltonian:
     def to_dict(self) -> Dict[Tuple[int, ...], complex]:
         """Convert to dictionary with tuple keys."""
         return {pauli.to_tuple(): coeff for pauli, coeff in self.terms.items()}
+    
+    @staticmethod
+    def tfi_1d(n_qubits: int, h: float = 1.0, J: float = 1.0, periodic: bool = False) -> 'Hamiltonian':
+        """
+        Generate the 1D Transverse Field Ising Model Hamiltonian with open boundary conditions.
+        
+        H = -J sum Z_i Z_{i+1} - h sum X_i
+        
+        Args:
+            n_qubits: Number of qubits
+            h: Transverse field strength
+            J: Interaction strength
+        """
+        terms = {}
+        if not periodic:
+            # Interaction terms -J Z_i Z_{i+1}
+            for i in range(n_qubits - 1):
+                pauli_ops = [0] * n_qubits
+                pauli_ops[i] = 3  # Z
+                pauli_ops[i + 1] = 3  # Z
+                pauli_string = PauliString.from_list(pauli_ops)
+                terms[pauli_string] = -J
+            
+            # Transverse field terms -h X_i
+            for i in range(n_qubits):
+                pauli_ops = [0] * n_qubits
+                pauli_ops[i] = 1  # X
+                pauli_string = PauliString.from_list(pauli_ops)
+                terms[pauli_string] = -h
+        else:
+            # Interaction terms -J Z_i Z_{i+1} with periodic boundary
+            for i in range(n_qubits):
+                pauli_ops = [0] * n_qubits
+                pauli_ops[i] = 3  # Z
+                pauli_ops[(i + 1) % n_qubits] = 3  # Z
+                pauli_string = PauliString.from_list(pauli_ops)
+                terms[pauli_string] = -J
+            
+            # Transverse field terms -h X_i
+            for i in range(n_qubits):
+                pauli_ops = [0] * n_qubits
+                pauli_ops[i] = 1  # X
+                pauli_string = PauliString.from_list(pauli_ops)
+                terms[pauli_string] = -h
+        
+        return Hamiltonian(terms)
+    
+    @staticmethod
+    def heisenberg_1d(n_qubits: int, Jx: float = 1.0, Jy: float = 1.0, Jz: float = 1.0, periodic = False, fc = False) -> 'Hamiltonian':
+        """
+        Generate the 1D Heisenberg Model Hamiltonian with open boundary conditions.
+        
+        H = sum (Jx X_i X_{i+1} + Jy Y_i Y_{i+1} + Jz Z_i Z_{i+1})
+        
+        Args:
+            n_qubits: Number of qubits
+            Jx: Interaction strength for X terms
+            Jy: Interaction strength for Y terms
+            Jz: Interaction strength for Z terms
+        """
+        terms = {}
+        if not fc:
+            if not periodic:
+                for i in range(n_qubits - 1):
+                    if Jx != 0.0:
+                        # X_i X_{i+1}
+                        pauli_ops_x = [0] * n_qubits
+                        pauli_ops_x[i] = 1  # X
+                        pauli_ops_x[i + 1] = 1  # X
+                        pauli_string_x = PauliString.from_list(pauli_ops_x)
+                        terms[pauli_string_x] = Jx
+                    
+                    if Jy != 0.0:
+                        # Y_i Y_{i+1}
+                        pauli_ops_y = [0] * n_qubits
+                        pauli_ops_y[i] = 2  # Y
+                        pauli_ops_y[i + 1] = 2  # Y
+                        pauli_string_y = PauliString.from_list(pauli_ops_y)
+                        terms[pauli_string_y] = Jy
+                    
+                    if Jz != 0.0:
+                        # Z_i Z_{i+1}
+                        pauli_ops_z = [0] * n_qubits
+                        pauli_ops_z[i] = 3  # Z
+                        pauli_ops_z[i + 1] = 3  # Z
+                        pauli_string_z = PauliString.from_list(pauli_ops_z)
+                        terms[pauli_string_z] = Jz
+                
+                return Hamiltonian(terms)
+            else:
+                for i in range(n_qubits):
+                    if Jx != 0.0:
+                        # X_i X_{i+1}
+                        pauli_ops_x = [0] * n_qubits
+                        pauli_ops_x[i] = 1  # X
+                        pauli_ops_x[(i + 1) % n_qubits] = 1  # X
+                        pauli_string_x = PauliString.from_list(pauli_ops_x)
+                        terms[pauli_string_x] = Jx
+                    
+                    if Jy != 0.0:
+                        # Y_i Y_{i+1}
+                        pauli_ops_y = [0] * n_qubits
+                        pauli_ops_y[i] = 2  # Y
+                        pauli_ops_y[(i + 1) % n_qubits] = 2  # Y
+                        pauli_string_y = PauliString.from_list(pauli_ops_y)
+                        terms[pauli_string_y] = Jy
+                    
+                    if Jz != 0.0:
+                        # Z_i Z_{i+1}
+                        pauli_ops_z = [0] * n_qubits
+                        pauli_ops_z[i] = 3  # Z
+                        pauli_ops_z[(i + 1) % n_qubits] = 3  # Z
+                        pauli_string_z = PauliString.from_list(pauli_ops_z)
+                        terms[pauli_string_z] = Jz
+                
+                return Hamiltonian(terms)
+        else:
+            for i in range(n_qubits):
+                for j in range(i + 1, n_qubits):
+                    if Jx != 0.0:
+                        # X_i X_j
+                        pauli_ops_x = [0] * n_qubits
+                        pauli_ops_x[i] = 1  # X
+                        pauli_ops_x[j] = 1  # X
+                        pauli_string_x = PauliString.from_list(pauli_ops_x)
+                        terms[pauli_string_x] = Jx
+                    
+                    if Jy != 0.0:
+                        # Y_i Y_j
+                        pauli_ops_y = [0] * n_qubits
+                        pauli_ops_y[i] = 2  # Y
+                        pauli_ops_y[j] = 2  # Y
+                        pauli_string_y = PauliString.from_list(pauli_ops_y)
+                        terms[pauli_string_y] = Jy
+                    
+                    if Jz != 0.0:
+                        # Z_i Z_j
+                        pauli_ops_z = [0] * n_qubits
+                        pauli_ops_z[i] = 3  # Z
+                        pauli_ops_z[j] = 3  # Z
+                        pauli_string_z = PauliString.from_list(pauli_ops_z)
+                        terms[pauli_string_z] = Jz
+
+            return Hamiltonian(terms)
