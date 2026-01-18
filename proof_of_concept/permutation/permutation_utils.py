@@ -309,30 +309,53 @@ def visualise_hamiltonian_graph(hamiltonian: Hamiltonian) -> None:
     plt.figure(figsize=(12, 8))
     ax = plt.gca()
 
-    # Separate node sets
-    qubit_nodes = {n for n, d in G.nodes(data=True) if d["bipartite"] == 0}
-    term_nodes = set(G.nodes()) - qubit_nodes
-    pos = nx.bipartite_layout(G, qubit_nodes, align="vertical")
+    # Separate node sets and sort them
+    qubit_nodes = sorted([n for n, d in G.nodes(data=True) if d["bipartite"] == 0], 
+                         key=lambda x: int(x[1:]))  # Sort by qubit number
+    term_nodes = sorted(set(G.nodes()) - set(qubit_nodes), 
+                       key=lambda x: int(x[1:]))  # Sort by term number
+    
+    # Create explicit positions for deterministic ordering with normalized spacing
+    pos = {}
+    n_qubits = len(qubit_nodes)
+    n_terms = len(term_nodes)
+    max_nodes = max(n_qubits, n_terms)
+    
+    # Calculate spacing to normalize vertical extent
+    qubit_spacing = (max_nodes - 1) / (n_qubits - 1) if n_qubits > 1 else 1
+    term_spacing = (max_nodes - 1) / (n_terms - 1) if n_terms > 1 else 1
+    
+    # Position qubit nodes on the left with normalized spacing
+    for i, node in enumerate(qubit_nodes):
+        pos[node] = (0, -i * qubit_spacing)
+    # Position term nodes on the right with normalized spacing
+    for i, node in enumerate(term_nodes):
+        pos[node] = (1, -i * term_spacing)
+    
     term_coeffs = [G.nodes[n].get("color", (None, 0))[1] for n in term_nodes]
 
-    # Draw qubit nodes
+    # Draw qubit nodes with lighter, more readable color
     nx.draw_networkx_nodes(
-        G, pos, nodelist=qubit_nodes, node_color="lightblue", node_size=500, ax=ax
+        G, pos, nodelist=qubit_nodes, node_color="#87CEEB", node_size=600, ax=ax, edgecolors='black', linewidths=1
     )
 
-    # Draw term nodes
+    # Draw term nodes with a light smooth gradient colormap and black edges
     nodes = nx.draw_networkx_nodes(
         G,
         pos,
         nodelist=term_nodes,
         node_color=term_coeffs,
-        node_size=500,
-        cmap='coolwarm',
+        node_size=600,
+        cmap='summer',  # Yellow to green gradient - smooth and light
         ax=ax,
+        edgecolors='black',
+        linewidths=1
     )
 
     # Draw colourbar for term coefficients
-    plt.colorbar(nodes, ax=ax, label="Coefficient Value", shrink=0.8)
+    cbar = plt.colorbar(nodes, ax=ax, label="Coefficient Value", shrink=0.8)
+    cbar.ax.tick_params(labelsize=16)
+    cbar.set_label("Coefficient Value", size=16)
 
     # Get edge colours
     edge_visual_map = {"X": "red", "Y": "green", "Z": "blue"}
@@ -346,7 +369,8 @@ def visualise_hamiltonian_graph(hamiltonian: Hamiltonian) -> None:
 
     nx.draw_networkx_edges(G, pos, ax=ax, edge_color=edge_colors, alpha=0.7, width=1.5)
 
-    nx.draw_networkx_labels(G, pos, ax=ax, font_size=10)
+    # Draw labels with readable font size and black color
+    nx.draw_networkx_labels(G, pos, ax=ax, font_size=16, font_color='black')
 
     # Add bipartite labels
     ax.text(
@@ -356,7 +380,7 @@ def visualise_hamiltonian_graph(hamiltonian: Hamiltonian) -> None:
         transform=ax.transAxes,
         ha="left",
         va="top",
-        fontsize=12,
+        fontsize=16,
     )
     ax.text(
         1.0,
@@ -365,7 +389,7 @@ def visualise_hamiltonian_graph(hamiltonian: Hamiltonian) -> None:
         transform=ax.transAxes,
         ha="right",
         va="top",
-        fontsize=12,
+        fontsize=16,
     )
 
     ax.set_xticks([])
@@ -383,10 +407,12 @@ def visualise_hamiltonian_graph(hamiltonian: Hamiltonian) -> None:
         labels=["X operator", "Y operator", "Z operator"],
         loc="upper right",
         title="Edge Type",
-        bbox_to_anchor=(1.13, 0.075),
+        bbox_to_anchor=(1.18, 0.075),
+        fontsize=16,
+        title_fontsize=16,
     )
 
-    plt.title("Coloured Bipartite Graph of Hamiltonian")
+    plt.title("Coloured Bipartite Graph of Hamiltonian", fontsize=16)
     plt.tight_layout(pad=1.5)
     plt.show()
 
