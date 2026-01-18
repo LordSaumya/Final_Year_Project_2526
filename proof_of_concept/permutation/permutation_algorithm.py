@@ -1,12 +1,17 @@
 import networkx as nx
-from permutation_utils import ( # ty: ignore[unresolved-import]
-    hamiltonian_to_graph,
-    check_permutation_symmetry,
-    find_minimal_generators
-)
-from automorphism_finder import find_automorphism_group_orbits
 import sys
 import os
+import math
+
+# Add current directory to path for imports when called from other modules
+sys.path.insert(0, os.path.dirname(__file__))
+
+from permutation_utils import (  # noqa: E402
+    hamiltonian_to_graph,
+    check_permutation_symmetry,
+    find_minimal_generators,
+    visualise_hamiltonian_graph
+)
 import itertools
 from typing import Dict, Tuple, List, Set
 from multiprocessing import Pool, cpu_count
@@ -184,9 +189,18 @@ def find_automorphism_group_bruteforce_graph(
     term_signatures_list = list(term_signatures.values())
     
     # Split permutations into batches
-    all_perms = list(itertools.permutations(range(n_qubits)))
-    batch_size = max(1, len(all_perms) // (n_processes * 4))  # 4 batches per process
-    perm_batches = [all_perms[i:i + batch_size] for i in range(0, len(all_perms), batch_size)]
+    # Calculate total permutations to determine batch size
+    total_perms = math.factorial(n_qubits)
+    batch_size = max(1, total_perms // (n_processes * 4))  # 4 batches per process
+    
+    def perm_batch_generator():
+        """Yields batches of permutations without creating the full list."""
+        it = itertools.permutations(range(n_qubits))
+        while True:
+            batch = list(itertools.islice(it, batch_size))
+            if not batch:
+                break
+            yield batch
     
     # Create worker function with fixed arguments
     worker_fn = partial(
@@ -197,15 +211,15 @@ def find_automorphism_group_bruteforce_graph(
     )
     
     # Process batches in parallel
-    with Pool(processes=n_processes) as pool:
-        results = pool.map(worker_fn, perm_batches)
-    
-    # Combine results
     found_symmetries_cycles = []
     group_size = 0
-    for batch_symmetries, batch_count in results:
-        found_symmetries_cycles.extend(batch_symmetries)
-        group_size += batch_count
+    
+    with Pool(processes=n_processes) as pool:
+        # Use imap to lazily generate and process batches
+        # imap_unordered is slightly faster as we don't care about order
+        for batch_symmetries, batch_count in pool.imap_unordered(worker_fn, perm_batch_generator()):
+            found_symmetries_cycles.extend(batch_symmetries)
+            group_size += batch_count
     
     return find_minimal_generators(found_symmetries_cycles, n_qubits), group_size
 
@@ -217,70 +231,10 @@ def print_results(hamiltonian_name: str, generators: List[List[List[int]]], grou
 
 
 if __name__ == "__main__":
-    # n_qubits = 5
-    # n_seed_terms = 4
-    # locality = 2
-    # symmetries = random_symmetry_generators(n_qubits, 2, locality)
-    # print("Symmetries used to generate Hamiltonian:", symmetries)
+    hamiltonian = Hamiltonian.heisenberg_1d(n_qubits=5, Jx=1.0, Jy=1.0, Jz=1.0, periodic=True)
 
-    # hamiltonian = generate_symmetric_hamiltonian_int(
-    #     n_qubits, symmetries, n_seed_terms, locality
-    # )
-
-    n_qubits = 10
-    print(f"\n---- 1D Transverse Field Ising Model (PBC, {n_qubits} Qubits, Homogenous) ----")
-    tfi_hamiltonian = Hamiltonian.tfi_1d(n_qubits=n_qubits, h=5.0, J=10.0, periodic = True)
-
-    # visualise_hamiltonian_graph(tfi_hamiltonian)
-
-    generators, group_size = find_automorphism_group_bruteforce_graph(hamiltonian_to_graph(tfi_hamiltonian))
-    print_results("1D TFI", generators, group_size)
-
-    print("\n---- 1D Transverse Field Ising Model (PBC, 8 Qubits, Inhomogenous) ----")
-    tfi_inhom_hamiltonian_terms: Dict[PauliString, complex] = {
-        PauliString([3, 3, 0, 0, 0, 0, 0]): 10.0, # Z1Z2
-        PauliString([0, 3, 3, 0, 0, 0, 0]): 10.0,  # Z2Z3
-        PauliString([0, 0, 3, 3, 0, 0, 0]): 10.0, # Z3Z4
-        PauliString([0, 0, 0, 3, 3, 0, 0]): -10.0,  # Z4Z5
-        PauliString([0, 0, 0, 0, 3, 3, 0]): -10.0, # Z5Z6
-        PauliString([0, 0, 0, 0, 0, 3, 3]): -10.0,  # Z6Z7
-        PauliString([3, 0, 0, 0, 0, 0, 3]): 10.0, # Z7Z0 (PBC)
-    }
-
-    for i in range(7):
-        tfi_inhom_hamiltonian_terms[PauliString([1 if j == i else 0 for j in range(7)])] = (-1)**i * 5.0  # X_i terms
-
-    tfi_inhom_hamiltonian = Hamiltonian(tfi_inhom_hamiltonian_terms)
-
-    # visualise_hamiltonian_graph(tfi_inhom_hamiltonian)
-
-    generators, group_size = find_automorphism_group_bruteforce_graph(hamiltonian_to_graph(tfi_inhom_hamiltonian))
-    print_results("1D TFI Inhomogenous", generators, group_size)
-
-    print("\n---- 2D Transverse Field Ising Model (Square Lattice, 4 Qubits) ----")
-    # H = -J(Z0Z1 + Z1Z2 + Z2Z3 + Z3Z0) - h(X1 + X2 + X3 + X4)
-    # J = 2.0, h = 3.0
-    hamiltonian_terms: Dict[PauliString, complex] = {
-        PauliString([3, 3, 0, 0]): -2.0,  # Z0Z1
-        PauliString([0, 3, 3, 0]): -2.0,  # Z1Z2
-        PauliString([0, 0, 3, 3]): -2.0,  # Z2Z3
-        PauliString([3, 0, 0, 3]): -2.0,  # Z3Z0
-        PauliString([1, 0, 0, 0]): -3.0,  # X0
-        PauliString([0, 1, 0, 0]): -3.0,  # X1
-        PauliString([0, 0, 1, 0]): -3.0,  # X2
-        PauliString([0, 0, 0, 1]): -3.0   # X3
-    }
-
-    square_lattice_hamiltonian = Hamiltonian(hamiltonian_terms)
-    # visualise_hamiltonian_graph(square_lattice_hamiltonian)
-    generators, group_size = find_automorphism_group_bruteforce_graph(hamiltonian_to_graph(square_lattice_hamiltonian))
-    print_results("2D TFI Square Lattice", generators, group_size)
-
-    n_qubits = 5
-    print("\n--- 1D Heisenberg Model (8 Qubits) ---")
-    heisenberg_hamiltonian = Hamiltonian.heisenberg_1d(n_qubits=n_qubits, Jx=1.0, Jy=1.0, Jz=1.0, periodic=False, fc = True)
+    # Find symmetries via graph brute-force
+    graph = hamiltonian_to_graph(hamiltonian)
+    generators, group_size = find_automorphism_group_bruteforce_graph(graph, parallel=True)
+    print_results("Custom Hamiltonian", generators, group_size)
     
-    # visualise_hamiltonian_graph(heisenberg_hamiltonian)
-
-    generators, group_size = find_automorphism_group_bruteforce_graph(hamiltonian_to_graph(heisenberg_hamiltonian))
-    print_results("1D Heisenberg", generators, group_size)
