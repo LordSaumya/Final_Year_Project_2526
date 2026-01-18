@@ -4,11 +4,11 @@ from typing import Set, List, Tuple
 import random
 import sys
 import os
+import matplotlib.pyplot as plt
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from hamiltonian_utils import PauliString, Hamiltonian
-
 
 def generate_random_graph(n: int, p: float) -> nx.Graph:
     """
