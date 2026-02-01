@@ -208,3 +208,4 @@ __marimo__/
 
 # Ignore csv files
 *.csv
+.github/copilot-instructions.md
